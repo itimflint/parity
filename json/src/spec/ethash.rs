@@ -70,6 +70,9 @@ pub struct EthashParams {
 	/// See main EthashParams docs.
 	#[serde(rename="eip150Transition")]
 	pub eip150_transition: Option<Uint>,
+	/// See main EthashParams docs.
+	#[serde(rename="eip158Transition")]
+	pub eip158_transition: Option<Uint>,
 }
 
 /// Ethash engine deserialization.

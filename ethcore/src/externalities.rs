@@ -246,7 +246,11 @@ impl<'a, T, V> Ext for Externalities<'a, T, V> where T: 'a + Tracer, V: 'a + VMT
 				let mut code = vec![];
 				code.extend_from_slice(data);
 
-				self.state.init_code(&self.origin_info.address, code);
+				if self.schedule.no_empty_accounts && code.len() == 0 && self.state.balance(&self.origin_info.address).is_zero() && self.state.nonce(&self.origin_info.address).is_zero() {
+					self.state.kill_account(&self.origin_info.address);	
+				} else {
+					self.state.init_code(&self.origin_info.address, code);
+				}
 				Ok(*gas - return_cost)
 			}
 		}
@@ -265,11 +269,13 @@ impl<'a, T, V> Ext for Externalities<'a, T, V> where T: 'a + Tracer, V: 'a + VMT
 		let address = self.origin_info.address.clone();
 		let balance = self.balance(&address);
 		if &address == refund_address {
-			// TODO [todr] To be consisted with CPP client we set balance to 0 in that case.
+			// TODO [todr] To be consistent with CPP client we set balance to 0 in that case.
 			self.state.sub_balance(&address, &balance);
 		} else {
 			trace!("Suiciding {} -> {} (xfer: {})", address, refund_address, balance);
-			self.state.transfer_balance(&address, refund_address, &balance);
+			if !self.schedule.no_empty_accounts || !balance.is_zero() {
+				self.state.transfer_balance(&address, refund_address, &balance);
+			}
 		}
 
 		self.tracer.trace_suicide(address, balance, refund_address.clone());

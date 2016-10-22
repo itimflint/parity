@@ -93,6 +93,10 @@ pub struct Schedule {
 	/// If Some(x): let limit = GAS * (x - 1) / x; let CALL's gas = min(requested, limit). let CREATE's gas = limit.
 	/// If None: let CALL's gas = (requested > GAS ? [OOG] : GAS). let CREATE's gas = GAS
 	pub sub_gas_cap_divisor: Option<usize>,
+	/// Disallow empty accounts from being created.
+	pub no_empty_accounts: bool,
+	/// Remove empty accounts when touched via a zero-balance transfer.
+	pub kill_empty_accounts: bool,
 }
 
 impl Schedule {
@@ -107,7 +111,7 @@ impl Schedule {
 	}
 
 	/// Schedule for the Homestead-era of the Ethereum main net.
-	pub fn new_homestead_gas_fix() -> Schedule {
+	pub fn new_homestead_gas_fix(nea: bool) -> Schedule {
 		Schedule{
 			exceptional_failed_code_deposit: true,
 			have_delegate_call: true,
@@ -146,6 +150,8 @@ impl Schedule {
 			suicide_gas: 5000,
 			suicide_to_new_account_cost: 25000,
 			sub_gas_cap_divisor: Some(64),
+			no_empty_accounts: nea,
+			kill_empty_accounts: nea,
 		}
 	}
 
@@ -188,6 +194,8 @@ impl Schedule {
 			suicide_gas: 0,
 			suicide_to_new_account_cost: 0,
 			sub_gas_cap_divisor: None,
+			no_empty_accounts: false,
+			kill_empty_accounts: false,
 		}
 	}
 }

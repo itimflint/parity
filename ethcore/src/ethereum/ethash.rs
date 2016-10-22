@@ -56,6 +56,8 @@ pub struct EthashParams {
 	pub bomb_defuse_transition: u64,
 	/// Bad gas transition block number.
 	pub eip150_transition: u64,
+	/// EIP-158 hardfork number
+	pub eip158_transition: u64,
 }
 
 impl From<ethjson::spec::EthashParams> for EthashParams {
@@ -76,6 +78,7 @@ impl From<ethjson::spec::EthashParams> for EthashParams {
 			difficulty_hardfork_bound_divisor: p.difficulty_hardfork_bound_divisor.map_or(p.difficulty_bound_divisor.into(), Into::into),
 			bomb_defuse_transition: p.bomb_defuse_transition.map_or(0x7fffffffffffffff, Into::into),
 			eip150_transition: p.eip150_transition.map_or(0, Into::into),
+			eip158_transition: p.eip158_transition.map_or(0, Into::into),
 		}
 	}
 }
@@ -120,14 +123,14 @@ impl Engine for Ethash {
 	}
 
 	fn schedule(&self, env_info: &EnvInfo) -> Schedule {
-		trace!(target: "client", "Creating schedule. fCML={}, bGCML={}", self.ethash_params.homestead_transition, self.ethash_params.eip150_transition);
+		trace!(target: "client", "Creating schedule. fCML={}, eip150={}, eip158={}", self.ethash_params.homestead_transition, self.ethash_params.eip150_transition, self.ethash_params.eip158_transition);
 
 		if env_info.number < self.ethash_params.homestead_transition {
 			Schedule::new_frontier()
 		} else if env_info.number < self.ethash_params.eip150_transition {
 			Schedule::new_homestead()
 		} else {
-			Schedule::new_homestead_gas_fix()
+			Schedule::new_homestead_gas_fix(env_info.number >= self.ethash_params.eip158_transition)
 		}
 	}
 

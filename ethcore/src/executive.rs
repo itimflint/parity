@@ -254,7 +254,9 @@ impl<'a> Executive<'a> {
 
 		// at first, transfer value to destination
 		if let ActionValue::Transfer(val) = params.value {
-			self.state.transfer_balance(&params.sender, &params.address, &val);
+			if !self.engine.schedule().no_empty_accounts || !val.is_zero() {
+				self.state.transfer_balance(&params.sender, &params.address, &val);
+			}
 		}
 		trace!("Executive::call(params={:?}) self.env_info={:?}", params, self.info);
 
@@ -430,7 +432,10 @@ impl<'a> Executive<'a> {
 		trace!("exec::finalize: Refunding refund_value={}, sender={}\n", refund_value, t.sender().unwrap());
 		self.state.add_balance(&t.sender().unwrap(), &refund_value);
 		trace!("exec::finalize: Compensating author: fees_value={}, author={}\n", fees_value, &self.info.author);
-		self.state.add_balance(&self.info.author, &fees_value);
+
+		if !self.schedule.no_empty_accounts || !fees_value.is_zero() {
+			self.state.add_balance(&self.info.author, &fees_value);
+		}
 
 		// perform suicides
 		for address in &substate.suicides {
