@@ -204,7 +204,8 @@ pub struct Database {
 	// Values currently being flushed. Cleared when `flush` completes.
 	flushing: RwLock<Vec<HashMap<ElasticArray32<u8>, KeyState>>>,
 	// Prevents concurrent flushes.
-	flushing_lock: Mutex<()>,
+	// Value indicates if a flush is in progress.
+	flushing_lock: Mutex<bool>,
 }
 
 impl Database {
@@ -297,7 +298,7 @@ impl Database {
 			overlay: RwLock::new((0..(cfs.len() + 1)).map(|_| HashMap::new()).collect()),
 			flushing: RwLock::new((0..(cfs.len() + 1)).map(|_| HashMap::new()).collect()),
 			cfs: cfs,
-			flushing_lock: Mutex::new(()),
+			flushing_lock: Mutex::new(false),
 			read_opts: read_opts,
 		})
 	}
@@ -335,10 +336,9 @@ impl Database {
 		Ok(())
 	}
 
-	/// Commit buffered changes to database.
-	pub fn flush(&self) -> Result<(), String> {
-		let _lock = self.flushing_lock.lock();
-		mem::swap(&mut *self.overlay.write(), &mut *self.flushing.write());
+
+	/// Commit buffered changes to database. Must be called under `flush_lock`
+	fn write_flushing(&self) -> Result<(), String> {
 		let batch = WriteBatch::new();
 		for (c, column) in self.flushing.read().iter().enumerate() {
 			for (key, state) in column.iter() {
@@ -375,6 +375,20 @@ impl Database {
 		Ok(())
 	}
 
+	/// Commit buffered changes to database.
+	pub fn flush(&self) -> Result<(), String> {
+		let mut lock = self.flushing_lock.lock();
+		// If RocksDB batch allocation fails the thread gets terminated and the lock is released.
+		// The value inside the lock is used to detect that.
+		if *lock {
+			// This can only happen if another flushing thread is terminated unexpectedly.
+			return Err("Database write failure. Running low on memory perhaps?".to_owned());
+		}
+		*lock = true;
+		let result = self.write_flushing();
+		*lock = false;
+		result
+	}
 
 	/// Commit transaction to database.
 	pub fn write(&self, tr: DBTransaction) -> Result<(), String> {
