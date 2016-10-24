@@ -254,14 +254,7 @@ impl<'a> Executive<'a> {
 
 		// at first, transfer value to destination
 		if let ActionValue::Transfer(val) = params.value {
-<<<<<<< Updated upstream
-			if !self.engine.schedule().no_empty_accounts || !val.is_zero() {
-				self.state.transfer_balance(&params.sender, &params.address, &val);
-			}
-=======
-			let s = self.engine.schedule();
 			self.state.transfer_balance_and_cleanup(&params.sender, &params.address, &val, s.no_empty_accounts, s.kill_empty_accounts);
->>>>>>> Stashed changes
 		}
 		trace!("Executive::call(params={:?}) self.env_info={:?}", params, self.info);
 
@@ -436,15 +429,6 @@ impl<'a> Executive<'a> {
 		trace!("exec::finalize: t.gas={}, sstore_refunds={}, suicide_refunds={}, refunds_bound={}, gas_left_prerefund={}, refunded={}, gas_left={}, gas_used={}, refund_value={}, fees_value={}\n",
 			t.gas, sstore_refunds, suicide_refunds, refunds_bound, gas_left_prerefund, refunded, gas_left, gas_used, refund_value, fees_value);
 
-<<<<<<< Updated upstream
-		trace!("exec::finalize: Refunding refund_value={}, sender={}\n", refund_value, t.sender().unwrap());
-		self.state.add_balance(&t.sender().unwrap(), &refund_value);
-		trace!("exec::finalize: Compensating author: fees_value={}, author={}\n", fees_value, &self.info.author);
-
-		if !self.schedule.no_empty_accounts || !fees_value.is_zero() {
-			self.state.add_balance(&self.info.author, &fees_value);
-		}
-=======
 		let sender = match t.sender() {
 			Ok(sender) => sender,
 			Err(e) => {
@@ -457,7 +441,6 @@ impl<'a> Executive<'a> {
 		self.state.add_balance_with_cleanup(&sender, &refund_value, schedule.no_empty_accounts, schedule.kill_empty_accounts);
 		trace!("exec::finalize: Compensating author: fees_value={}, author={}\n", fees_value, &self.info.author);
 		self.state.add_balance_with_cleanup(&self.info.author, &fees_value, schedule.no_empty_accounts, schedule.kill_empty_accounts);
->>>>>>> Stashed changes
 
 		// perform suicides
 		for address in &substate.suicides {

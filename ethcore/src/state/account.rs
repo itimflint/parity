@@ -283,8 +283,6 @@ impl Account {
 	/// Determine whether there are any un-`commit()`-ed storage-setting operations.
 	pub fn storage_is_clean(&self) -> bool { self.storage_changes.is_empty() }
 
-<<<<<<< Updated upstream
-=======
 	/// Check if account has zero nonce, balance, no code and no storage.
 	pub fn is_empty(&self) -> bool {
 		self.storage_changes.is_empty() &&
@@ -301,7 +299,6 @@ impl Account {
 		self.code_hash == SHA3_EMPTY
 	}
 
->>>>>>> Stashed changes
 	#[cfg(test)]
 	/// return the storage root associated with this account or None if it has been altered via the overlay.
 	pub fn storage_root(&self) -> Option<&H256> { if self.storage_is_clean() {Some(&self.storage_root)} else {None} }

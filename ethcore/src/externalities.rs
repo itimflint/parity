@@ -269,21 +269,11 @@ impl<'a, T, V> Ext for Externalities<'a, T, V> where T: 'a + Tracer, V: 'a + VMT
 		let address = self.origin_info.address.clone();
 		let balance = self.balance(&address);
 		if &address == refund_address {
-<<<<<<< Updated upstream
-			// TODO [todr] To be consistent with CPP client we set balance to 0 in that case.
+			// TODO [todr] To be consisted with CPP client we set balance to 0 in that case.
 			self.state.sub_balance(&address, &balance);
 		} else {
 			trace!("Suiciding {} -> {} (xfer: {})", address, refund_address, balance);
-			if !self.schedule.no_empty_accounts || !balance.is_zero() {
-				self.state.transfer_balance(&address, refund_address, &balance);
-			}
-=======
-			// TODO [todr] To be consisted with CPP client we set balance to 0 in that case.
-			self.state.sub_balance_and_cleanup(&address, &address, &balance, self.schedule.no_empty_accounts, self.schedule.kill_empty_accounts);
-		} else {
-			trace!("Suiciding {} -> {} (xfer: {})", address, refund_address, balance);
 			self.state.transfer_balance_and_cleanup(&address, refund_address, &balance, self.schedule.no_empty_accounts, self.schedule.kill_empty_accounts);
->>>>>>> Stashed changes
 		}
 
 		self.tracer.trace_suicide(address, balance, refund_address.clone());
