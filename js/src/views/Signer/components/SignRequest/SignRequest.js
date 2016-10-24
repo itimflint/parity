@@ -22,11 +22,16 @@ import TxHashLink from '../TxHashLink';
 
 import styles from './SignRequest.css';
 
+const nullable = (type) => React.PropTypes.oneOfType([ React.PropTypes.oneOf([ null ]), type ]);
+
 export default class SignRequest extends Component {
+  static contextTypes = {
+    api: PropTypes.object
+  }
 
   // TODO [todr] re-use proptypes?
   static propTypes = {
-    id: PropTypes.string.isRequired,
+    id: PropTypes.object.isRequired,
     address: PropTypes.string.isRequired,
     hash: PropTypes.string.isRequired,
     isFinished: PropTypes.bool.isRequired,
@@ -34,7 +39,9 @@ export default class SignRequest extends Component {
     onConfirm: PropTypes.func,
     onReject: PropTypes.func,
     status: PropTypes.string,
-    className: PropTypes.string
+    className: PropTypes.string,
+    chain: nullable(PropTypes.object),
+    balance: nullable(PropTypes.object)
   };
 
   state = {
@@ -61,7 +68,7 @@ export default class SignRequest extends Component {
   }
 
   render () {
-    const { chain, balance, className } = this.props;
+    const { className } = this.props;
     return (
       <div className={ `${styles.container} ${className || ''}` }>
         { this.renderDetails() }
@@ -71,7 +78,10 @@ export default class SignRequest extends Component {
   }
 
   renderDetails () {
-    const { address, balance, chain, hash } = this.props;
+    const { address, hash } = this.props;
+    const { balance, chain } = this.state;
+
+    if (!balance || !chain) return (<div />);
 
     return (
       <div className={ styles.signDetails }>
@@ -91,7 +101,8 @@ export default class SignRequest extends Component {
 
     if (isFinished) {
       if (status === 'confirmed') {
-        const { chain, hash } = this.props;
+        const { hash } = this.props;
+        const { chain } = this.state;
 
         return (
           <div className={ styles.actions }>

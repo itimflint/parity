@@ -18,11 +18,11 @@ use std::sync::{Arc, Mutex, Condvar};
 use ctrlc::CtrlC;
 use fdlimit::raise_fd_limit;
 use ethcore_logger::{Config as LogConfig, setup_log};
-use ethcore_rpc::NetworkSettings;
+use ethcore_rpc::{NetworkSettings, is_major_importing};
 use ethsync::NetworkConfiguration;
 use util::{Colour, version, U256};
 use io::{MayPanic, ForwardPanic, PanicHandler};
-use ethcore::client::{Mode, DatabaseCompactionProfile, VMType, ChainNotify};
+use ethcore::client::{Mode, DatabaseCompactionProfile, VMType, ChainNotify, BlockChainClient};
 use ethcore::service::ClientService;
 use ethcore::account_provider::AccountProvider;
 use ethcore::miner::{Miner, MinerService, ExternalMiner, MinerOptions};
@@ -90,6 +90,7 @@ pub struct RunCmd {
 	pub name: String,
 	pub custom_bootnodes: bool,
 	pub no_periodic_snapshot: bool,
+	pub check_seal: bool,
 }
 
 pub fn execute(cmd: RunCmd) -> Result<(), String> {
@@ -134,7 +135,7 @@ pub fn execute(cmd: RunCmd) -> Result<(), String> {
 	let snapshot_path = db_dirs.snapshot_path();
 
 	// execute upgrades
-	try!(execute_upgrades(&db_dirs, algorithm, cmd.compaction.compaction_profile()));
+	try!(execute_upgrades(&db_dirs, algorithm, cmd.compaction.compaction_profile(db_dirs.fork_path().as_path())));
 
 	// run in daemon mode
 	if let Some(pid_file) = cmd.daemon {
@@ -197,6 +198,7 @@ pub fn execute(cmd: RunCmd) -> Result<(), String> {
 		cmd.name,
 		algorithm,
 		cmd.pruning_history,
+		cmd.check_seal,
 	);
 
 	// set up bootnodes
@@ -246,10 +248,9 @@ pub fn execute(cmd: RunCmd) -> Result<(), String> {
 	// set up dependencies for rpc servers
 	let signer_path = cmd.signer_conf.signer_path.clone();
 	let deps_for_rpc_apis = Arc::new(rpc_apis::Dependencies {
-		signer_port: cmd.signer_port,
 		signer_service: Arc::new(rpc_apis::SignerService::new(move || {
 			signer::generate_new_token(signer_path.clone()).map_err(|e| format!("{:?}", e))
-		})),
+		}, cmd.signer_port)),
 		client: client.clone(),
 		sync: sync_provider.clone(),
 		net: manage_network.clone(),
@@ -260,6 +261,10 @@ pub fn execute(cmd: RunCmd) -> Result<(), String> {
 		settings: Arc::new(cmd.net_settings.clone()),
 		net_service: manage_network.clone(),
 		geth_compatibility: cmd.geth_compatibility,
+		dapps_port: match cmd.dapps_conf.enabled {
+			true => Some(cmd.dapps_conf.port),
+			false => None,
+		},
 	});
 
 	let dependencies = rpc::Dependencies {
@@ -315,7 +320,7 @@ pub fn execute(cmd: RunCmd) -> Result<(), String> {
 			let sync = sync_provider.clone();
 			let watcher = Arc::new(snapshot::Watcher::new(
 				service.client(),
-				move || ::ethsync::SyncProvider::status(&*sync).is_major_syncing(),
+				move || is_major_importing(Some(sync.status().state), client.queue_info()),
 				service.io().channel(),
 				SNAPSHOT_PERIOD,
 				SNAPSHOT_HISTORY,

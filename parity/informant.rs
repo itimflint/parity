@@ -29,6 +29,7 @@ use ethcore::views::BlockView;
 use ethcore::snapshot::service::Service as SnapshotService;
 use ethcore::snapshot::{RestorationStatus, SnapshotService as SS};
 use number_prefix::{binary_prefix, Standalone, Prefixed};
+use ethcore_rpc::is_major_importing;
 
 pub struct Informant {
 	chain_info: RwLock<Option<BlockChainInfo>>,
@@ -42,6 +43,14 @@ pub struct Informant {
 	net: Option<Arc<ManageNetwork>>,
 	last_import: Mutex<Instant>,
 	skipped: AtomicUsize,
+}
+
+/// Format byte counts to standard denominations.
+pub fn format_bytes(b: usize) -> String {
+	match binary_prefix(b as f64) {
+		Standalone(bytes)   => format!("{} bytes", bytes),
+		Prefixed(prefix, n) => format!("{:.0} {}B", n, prefix),
+	}
 }
 
 /// Something that can be converted to milliseconds.
@@ -74,13 +83,6 @@ impl Informant {
 		}
 	}
 
-	fn format_bytes(b: usize) -> String {
-		match binary_prefix(b as f64) {
-			Standalone(bytes)   => format!("{} bytes", bytes),
-			Prefixed(prefix, n) => format!("{:.0} {}B", n, prefix),
-		}
-	}
-
 
 	#[cfg_attr(feature="dev", allow(match_bool))]
 	pub fn tick(&self) {
@@ -95,7 +97,7 @@ impl Informant {
 		let network_config = self.net.as_ref().map(|n| n.network_config());
 		let sync_status = self.sync.as_ref().map(|s| s.status());
 
-		let importing = self.sync.as_ref().map_or(false, |s| s.status().is_major_syncing());
+		let importing = is_major_importing(sync_status.map(|s| s.state), self.client.queue_info());
 		let (snapshot_sync, snapshot_current, snapshot_total) = self.snapshot.as_ref().map_or((false, 0, 0), |s|
 			match s.status() {
 				RestorationStatus::Ongoing { state_chunks, block_chunks, state_chunks_done, block_chunks_done } =>
@@ -155,11 +157,11 @@ impl Informant {
 				_ => String::new(),
 			},
 			format!("{} db {} chain {} queue{}",
-				paint(Blue.bold(), format!("{:>8}", Informant::format_bytes(report.state_db_mem))),
-				paint(Blue.bold(), format!("{:>8}", Informant::format_bytes(cache_info.total()))),
-				paint(Blue.bold(), format!("{:>8}", Informant::format_bytes(queue_info.mem_used))),
+				paint(Blue.bold(), format!("{:>8}", format_bytes(report.state_db_mem))),
+				paint(Blue.bold(), format!("{:>8}", format_bytes(cache_info.total()))),
+				paint(Blue.bold(), format!("{:>8}", format_bytes(queue_info.mem_used))),
 				match sync_status {
-					Some(ref sync_info) => format!(" {} sync", paint(Blue.bold(), format!("{:>8}", Informant::format_bytes(sync_info.mem_used)))),
+					Some(ref sync_info) => format!(" {} sync", paint(Blue.bold(), format!("{:>8}", format_bytes(sync_info.mem_used)))),
 					_ => String::new(),
 				}
 			)
@@ -174,7 +176,8 @@ impl Informant {
 impl ChainNotify for Informant {
 	fn new_blocks(&self, imported: Vec<H256>, _invalid: Vec<H256>, _enacted: Vec<H256>, _retracted: Vec<H256>, _sealed: Vec<H256>, duration: u64) {
 		let mut last_import = self.last_import.lock();
-		let importing = self.sync.as_ref().map_or(false, |s| s.status().is_major_syncing());
+		let sync_state = self.sync.as_ref().map(|s| s.status().state);
+		let importing = is_major_importing(sync_state, self.client.queue_info());
 		if Instant::now() > *last_import + Duration::from_secs(1) && !importing {
 			if let Some(block) = imported.last().and_then(|h| self.client.block(BlockID::Hash(*h))) {
 				let view = BlockView::new(&block);

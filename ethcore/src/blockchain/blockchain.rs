@@ -132,7 +132,8 @@ pub trait BlockProvider {
 
 	/// Returns the header of the genesis block.
 	fn genesis_header(&self) -> Header {
-		self.block_header(&self.genesis_hash()).unwrap()
+		self.block_header(&self.genesis_hash())
+			.expect("Genesis header always stored; qed")
 	}
 
 	/// Returns numbers of blocks containing given bloom.
@@ -393,6 +394,8 @@ impl BlockProvider for BlockChain {
 	}
 }
 
+/// An iterator which walks the blockchain towards the genesis.
+#[derive(Clone)]
 pub struct AncestryIter<'a> {
 	current: H256,
 	chain: &'a BlockChain,
@@ -402,11 +405,10 @@ impl<'a> Iterator for AncestryIter<'a> {
 	type Item = H256;
 	fn next(&mut self) -> Option<H256> {
 		if self.current.is_zero() {
-			Option::None
+			None
 		} else {
-			let mut n = self.chain.block_details(&self.current).unwrap().parent;
-			mem::swap(&mut self.current, &mut n);
-			Some(n)
+			self.chain.block_details(&self.current)
+				.map(|details| mem::replace(&mut self.current, details.parent))
 		}
 	}
 }
@@ -998,17 +1000,29 @@ impl BlockChain {
 		if !self.is_known(parent) { return None; }
 
 		let mut excluded = HashSet::new();
-		for a in self.ancestry_iter(parent.clone()).unwrap().take(uncle_generations) {
-			excluded.extend(self.uncle_hashes(&a).unwrap().into_iter());
-			excluded.insert(a);
+		let ancestry = match self.ancestry_iter(parent.clone()) {
+			Some(iter) => iter,
+			None => return None,
+		};
+
+		for a in ancestry.clone().take(uncle_generations) {
+			if let Some(uncles) = self.uncle_hashes(&a) {
+				excluded.extend(uncles);
+				excluded.insert(a);
+			} else {
+				break
+			}
 		}
 
 		let mut ret = Vec::new();
-		for a in self.ancestry_iter(parent.clone()).unwrap().skip(1).take(uncle_generations) {
-			ret.extend(self.block_details(&a).unwrap().children.iter()
-				.filter(|h| !excluded.contains(h))
-			);
+		for a in ancestry.skip(1).take(uncle_generations) {
+			if let Some(details) = self.block_details(&a) {
+				ret.extend(details.children.iter().filter(|h| !excluded.contains(h)))
+			} else {
+				break
+			}
 		}
+
 		Some(ret)
 	}
 
