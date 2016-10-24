@@ -150,11 +150,6 @@ impl Account {
 		self.code_filth = Filth::Dirty;
 	}
 
-	/// Reset this account's code to the given code.
-	pub fn reset_code(&mut self, code: Bytes) {
-		self.init_code(code);
-	}
-
 	/// Set (and cache) the contents of the trie's storage at `key` to `value`.
 	pub fn set_storage(&mut self, key: H256, value: H256) {
 		self.storage_changes.insert(key, value);
@@ -288,6 +283,25 @@ impl Account {
 	/// Determine whether there are any un-`commit()`-ed storage-setting operations.
 	pub fn storage_is_clean(&self) -> bool { self.storage_changes.is_empty() }
 
+<<<<<<< Updated upstream
+=======
+	/// Check if account has zero nonce, balance, no code and no storage.
+	pub fn is_empty(&self) -> bool {
+		self.storage_changes.is_empty() &&
+		self.balance.is_zero() &&
+		self.nonce.is_zero() &&
+		self.storage_root == SHA3_NULL_RLP &&
+		self.code_hash == SHA3_EMPTY
+	}
+
+	/// Check if account has zero nonce, balance and no code.
+	pub fn is_basically_empty(&self) -> bool {
+		self.balance.is_zero() &&
+		self.nonce.is_zero() &&
+		self.code_hash == SHA3_EMPTY
+	}
+
+>>>>>>> Stashed changes
 	#[cfg(test)]
 	/// return the storage root associated with this account or None if it has been altered via the overlay.
 	pub fn storage_root(&self) -> Option<&H256> { if self.storage_is_clean() {Some(&self.storage_root)} else {None} }
@@ -511,7 +525,7 @@ mod tests {
 	}
 
 	#[test]
-	fn reset_code() {
+	fn init_code() {
 		let mut a = Account::new_contract(69.into(), 0.into());
 		let mut db = MemoryDB::new();
 		let mut db = AccountDBMut::new(&mut db, &Address::new());
@@ -520,7 +534,7 @@ mod tests {
 		a.commit_code(&mut db);
 		assert_eq!(a.code_filth, Filth::Clean);
 		assert_eq!(a.code_hash().hex(), "af231e631776a517ca23125370d542873eca1fb4d613ed9b5d5335a46ae5b7eb");
-		a.reset_code(vec![0x55]);
+		a.init_code(vec![0x55]);
 		assert_eq!(a.code_filth, Filth::Dirty);
 		a.commit_code(&mut db);
 		assert_eq!(a.code_hash().hex(), "37bf2238b11b68cdc8382cece82651b59d3c3988873b6e0f33d79694aa45f1be");
