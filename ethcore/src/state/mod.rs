@@ -631,9 +631,10 @@ impl State {
 		}
 	}
 
-	/// Check caches for required data
-	/// First searches for account in the local, then the shared cache.
-	/// Populates local cache if nothing found.
+	/// Returns the execution of `f` when passed `Some` account at `a` or `None` if no account exists.
+	///
+	/// First searches for account in the local, then the shared cache. If neither are found, it
+	/// populates the local cache with the fact there's nothing there.
 	fn ensure_cached<F, U>(&self, a: &Address, require: RequireCache, f: F) -> U
 		where F: Fn(Option<&Account>) -> U {
 		// check local cache first
@@ -658,53 +659,6 @@ impl State {
 			None => {
 				// first check bloom if it is not in database for sure
 				if !self.db.check_account_bloom(a) { return f(None); }
-
-				// not found in the global cache, get from the DB and insert into local
-				let db = self.factories.trie.readonly(self.db.as_hashdb(), &self.root).expect(SEC_TRIE_DB_UNWRAP_STR);
-				let mut maybe_acc = match db.get(a) {
-					Ok(acc) => acc.map(Account::from_rlp),
-					Err(e) => panic!("Potential DB corruption encountered: {}", e),
-				};
-				if let Some(ref mut account) = maybe_acc.as_mut() {
-					let accountdb = self.factories.accountdb.readonly(self.db.as_hashdb(), account.address_hash(a));
-					Self::update_account_cache(require, account, accountdb.as_hashdb());
-				}
-				let r = f(maybe_acc.as_ref());
-				self.insert_cache(a, AccountEntry::new_clean(maybe_acc));
-				r
-			}
-		}
-	}
-
-	/// Returns the execution of `f` when passed `Some` account at `a` or `None` if no account exists.
-	///
-	/// First searches for account in the local, then the shared cache.
-	/// 
-	/// Populates local cache with the fact there's nothing there if nothing is found.
-	fn ensure_cached<F, U>(&self, a: &Address, require: RequireCache, check_bloom: bool, f: F) -> U
-		where F: Fn(Option<&Account>) -> U {
-		// check local cache first
-		if let Some(ref mut maybe_acc) = self.cache.borrow_mut().get_mut(a) {
-			if let Some(ref mut account) = maybe_acc.account {
-				let accountdb = self.factories.accountdb.readonly(self.db.as_hashdb(), account.address_hash(a));
-				Self::update_account_cache(require, account, accountdb.as_hashdb());
-				return f(Some(account));
-			}
-			return f(None);
-		}
-		// check global cache
-		let result = self.db.get_cached(a, |mut acc| {
-			if let Some(ref mut account) = acc {
-				let accountdb = self.factories.accountdb.readonly(self.db.as_hashdb(), account.address_hash(a));
-				Self::update_account_cache(require, account, accountdb.as_hashdb());
-			}
-			f(acc.map(|a| &*a))
-		});
-		match result {
-			Some(r) => r,
-			None => {
-				// first check bloom if it is not in database for sure
-				if check_bloom && !self.db.check_account_bloom(a) { return f(None); }
 
 				// not found in the global cache, get from the DB and insert into local
 				let db = self.factories.trie.readonly(self.db.as_hashdb(), &self.root).expect(SEC_TRIE_DB_UNWRAP_STR);

@@ -254,6 +254,7 @@ impl<'a> Executive<'a> {
 
 		// at first, transfer value to destination
 		if let ActionValue::Transfer(val) = params.value {
+			let s = self.engine.schedule(self.info);
 			self.state.transfer_balance_and_cleanup(&params.sender, &params.address, &val, s.no_empty_accounts, s.kill_empty_accounts);
 		}
 		trace!("Executive::call(params={:?}) self.env_info={:?}", params, self.info);
@@ -380,8 +381,6 @@ impl<'a> Executive<'a> {
 			self.exec_vm(params, &mut unconfirmed_substate, OutputPolicy::InitContract(trace_output.as_mut()), &mut subtracer, &mut subvmtracer)
 		};
 
-		self.state.add_balance_and_cleanup(&self.info.author, &fees_value, self.schedule.no_empty_accounts, self.schedule.kill_empty_accounts);
-
 		vm_tracer.done_subtrace(subvmtracer);
 
 		match res {
@@ -438,9 +437,9 @@ impl<'a> Executive<'a> {
 		};
 
 		trace!("exec::finalize: Refunding refund_value={}, sender={}\n", refund_value, sender);
-		self.state.add_balance_with_cleanup(&sender, &refund_value, schedule.no_empty_accounts, schedule.kill_empty_accounts);
+		self.state.add_balance_and_cleanup(&sender, &refund_value, schedule.no_empty_accounts, schedule.kill_empty_accounts);
 		trace!("exec::finalize: Compensating author: fees_value={}, author={}\n", fees_value, &self.info.author);
-		self.state.add_balance_with_cleanup(&self.info.author, &fees_value, schedule.no_empty_accounts, schedule.kill_empty_accounts);
+		self.state.add_balance_and_cleanup(&self.info.author, &fees_value, schedule.no_empty_accounts, schedule.kill_empty_accounts);
 
 		// perform suicides
 		for address in &substate.suicides {
