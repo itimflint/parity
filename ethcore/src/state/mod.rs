@@ -466,7 +466,7 @@ impl State {
 	pub fn add_balance_and_cleanup(&mut self, to: &Address, by: &U256, no_empty: bool, kill_empty: bool) {
 		if !no_empty || !by.is_zero() {
 			self.add_balance(to, by);
-		} else if kill_empty /*&& by.is_zero()*/ && self.ensure_cached(to, RequireCache::CodeSize, |a| a.map(Account::is_empty).unwrap_or(false)) {
+		} else if kill_empty /*&& by.is_zero()*/ && self.ensure_cached(to, RequireCache::CodeSize, true, |a| a.map(Account::is_empty).unwrap_or(false)) {
 			self.kill_account(to)
 		}
 	}
@@ -479,7 +479,7 @@ impl State {
 	pub fn transfer_balance_and_cleanup(&mut self, from: &Address, to: &Address, by: &U256, no_empty: bool, kill_empty: bool) {
 		if !no_empty || !by.is_zero() {
 			self.transfer_balance(from, to, by);
-		} else if kill_empty /*&& by.is_zero()*/ && self.ensure_cached(to, RequireCache::CodeSize, |a| a.map(Account::is_empty).unwrap_or(false)) {
+		} else if kill_empty /*&& by.is_zero()*/ && self.ensure_cached(to, RequireCache::CodeSize, true, |a| a.map(Account::is_empty).unwrap_or(false)) {
 			self.kill_account(to)
 		}
 	}
