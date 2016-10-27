@@ -76,7 +76,8 @@ export function renderAccounts (accounts, options = {}) {
         return true;
       }
 
-      if (account.uuid) {
+      // if (account.uuid) {
+      if (account.address) {
         return isPositive(account[options.gavBalance ? 'gavBalance' : 'ethBalance']);
       }
 
