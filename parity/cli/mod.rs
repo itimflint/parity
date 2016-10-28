@@ -34,6 +34,9 @@ usage! {
 		cmd_ui: bool,
 		cmd_tools: bool,
 		cmd_hash: bool,
+		cmd_evmbin: bool,
+		cmd_ethstore: bool,
+		cmd_ethkey: bool,
 
 		// Arguments
 		arg_pid_file: String,
@@ -484,6 +487,9 @@ mod tests {
 			cmd_ui: false,
 			cmd_tools: false,
 			cmd_hash: false,
+			cmd_evmbin: false,
+			cmd_ethstore: false,
+			cmd_ethkey: false,
 
 			// Arguments
 			arg_pid_file: "".into(),

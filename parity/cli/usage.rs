@@ -194,7 +194,8 @@ macro_rules! usage {
 			}
 
 			pub fn parse<S: AsRef<str>>(command: &[S]) -> Result<Self, DocoptError> {
-				Docopt::new(Self::usage()).and_then(|d| d.argv(command).decode())
+				Docopt::new(Self::usage())
+					.and_then(|d| d.help(false).argv(command).decode())
 			}
 
 			fn usage() -> String {

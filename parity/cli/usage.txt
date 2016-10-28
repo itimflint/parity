@@ -15,6 +15,9 @@ Usage:
   parity snapshot <file> [options]
   parity restore [ <file> ] [options]
   parity tools hash <file>
+  parity tools ethstore <options>...
+  parity tools ethkey <options>...
+  parity tools evmbin <options>...
 
 Operating Options:
   --mode MODE              Set the operating mode. MODE can be one of:

@@ -26,6 +26,7 @@ use ethsync::{NetworkConfiguration, is_valid_node_url, AllowIP};
 use ethcore::client::{VMType, Mode};
 use ethcore::miner::MinerOptions;
 
+use external;
 use rpc::{IpcConfiguration, HttpConfiguration};
 use ethcore_rpc::NetworkSettings;
 use cache::CacheConfig;
@@ -52,19 +53,23 @@ pub enum Cmd {
 	SignerToken(String),
 	Snapshot(SnapshotCommand),
 	Hash(Option<String>),
+	External(external::Tool, Vec<String>),
 }
 
 #[derive(Debug, PartialEq)]
 pub struct Configuration {
 	pub args: Args,
+	cli: Vec<String>,
 }
 
 impl Configuration {
 	pub fn parse<S: AsRef<str>>(command: &[S]) -> Result<Self, ArgsError> {
+		let cli = command.iter().map(|s| s.as_ref().to_owned()).collect();
 		let args = try!(Args::parse(command));
 
 		let config = Configuration {
 			args: args,
+			cli: cli,
 		};
 
 		Ok(config)
@@ -102,6 +107,8 @@ impl Configuration {
 			Cmd::SignerToken(dirs.signer)
 		} else if self.args.cmd_tools && self.args.cmd_hash {
 			Cmd::Hash(self.args.arg_file)
+		} else if self.args.cmd_tools && external::to_external(&self.args).is_some() {
+			Cmd::External(external::to_external(&self.args).expect("Checking for some above"), self.cli.clone())
 		} else if self.args.cmd_account {
 			let account_cmd = if self.args.cmd_new {
 				let new_acc = NewAccount {
@@ -690,6 +697,7 @@ mod tests {
 	fn parse(args: &[&str]) -> Configuration {
 		Configuration {
 			args: Args::parse_without_config(args).unwrap(),
+			cli: args.iter().map(|s| s.to_string()).collect(),
 		}
 	}
 

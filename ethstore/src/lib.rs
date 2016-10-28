@@ -37,6 +37,7 @@ extern crate lazy_static;
 
 pub mod dir;
 pub mod ethkey;
+pub mod cli;
 
 mod account;
 mod json;

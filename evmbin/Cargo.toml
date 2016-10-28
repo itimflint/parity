@@ -6,7 +6,7 @@ authors = ["Ethcore <admin@ethcore.io>"]
 
 [lib]
 name = "evm"
-path = "./src/main.rs"
+path = "./src/lib.rs"
 
 [[bin]]
 name = "evm"

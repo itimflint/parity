@@ -90,6 +90,7 @@ mod informant;
 mod io_handler;
 mod cli;
 mod configuration;
+mod external;
 mod migration;
 mod signer;
 mod rpc_apis;
@@ -144,6 +145,7 @@ fn execute(command: Cmd) -> Result<String, String> {
 		Cmd::Blockchain(blockchain_cmd) => blockchain::execute(blockchain_cmd),
 		Cmd::SignerToken(path) => signer::new_token(path),
 		Cmd::Snapshot(snapshot_cmd) => snapshot::execute(snapshot_cmd),
+		Cmd::External(tool, external) => external::execute(tool, external),
 	}
 }
 
@@ -198,7 +200,7 @@ fn sync_main() -> bool {
 fn main() {
 	// Always print backtrace on panic.
 	::std::env::set_var("RUST_BACKTRACE", "1");
-	
+
 	if sync_main() {
 		return;
 	}
