@@ -86,6 +86,7 @@ export default class Application extends Component {
         api.personal.accountsInfo()
       ])
       .then(([{ managerInstance, registryInstance, tokenregInstance }, accountsInfo]) => {
+        accountsInfo = accountsInfo || {};
         this.setState({
           loading: false,
           managerInstance,

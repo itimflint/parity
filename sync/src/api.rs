@@ -16,6 +16,7 @@
 
 use std::sync::Arc;
 use std::collections::HashMap;
+use std::io;
 use util::Bytes;
 use network::{NetworkProtocolHandler, NetworkService, NetworkContext, PeerId, ProtocolId,
 	NetworkConfiguration as BasicNetworkConfiguration, NonReservedPeerMode, NetworkError,
@@ -33,7 +34,7 @@ use std::str::FromStr;
 use parking_lot::RwLock;
 use chain::{ETH_PACKET_COUNT, SNAPSHOT_SYNC_PACKET_COUNT};
 
-pub const WARP_SYNC_PROTOCOL_ID: ProtocolId = *b"bam";
+pub const WARP_SYNC_PROTOCOL_ID: ProtocolId = *b"par";
 
 /// Sync configuration
 #[derive(Debug, Clone, Copy)]
@@ -210,7 +211,11 @@ impl ChainNotify for EthSync {
 	}
 
 	fn start(&self) {
-		self.network.start().unwrap_or_else(|e| warn!("Error starting network: {:?}", e));
+		match self.network.start() {
+			Err(NetworkError::StdIo(ref e)) if  e.kind() == io::ErrorKind::AddrInUse => warn!("Network port {:?} is already in use, make sure that another instance of an Ethereum client is not running or change the port using the --port option.", self.network.config().listen_address.expect("Listen address is not set.")),
+			Err(err) => warn!("Error starting network: {}", err),
+			_ => {},
+		}
 		self.network.register_protocol(self.handler.clone(), self.subprotocol_name, ETH_PACKET_COUNT, &[62u8, 63u8])
 			.unwrap_or_else(|e| warn!("Error registering ethereum protocol: {:?}", e));
 		// register the warp sync subprotocol

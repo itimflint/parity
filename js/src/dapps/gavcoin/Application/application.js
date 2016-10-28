@@ -32,6 +32,13 @@ import Events from '../Events';
 import Loading from '../Loading';
 import Status from '../Status';
 
+import styles from './application.css';
+import bgimage from '../../../../assets/images/dapps/gavcoin-bg.jpg';
+
+const bgstyle = {
+  backgroundImage: `url(${bgimage})`
+};
+
 const DIVISOR = 10 ** 6;
 
 export default class Application extends Component {
@@ -70,7 +77,7 @@ export default class Application extends Component {
     }
 
     return (
-      <div>
+      <div className={ styles.body } style={ bgstyle }>
         { this.renderModals() }
         <Status
           address={ address }
@@ -205,11 +212,12 @@ export default class Application extends Component {
         return Promise
           .all([
             registry.getAddress.call({}, [api.util.sha3('gavcoin'), 'A']),
-            api.personal.listAccounts(),
+            api.eth.accounts(),
             api.personal.accountsInfo()
           ]);
       })
       .then(([address, addresses, infos]) => {
+        infos = infos || {};
         console.log(`gavcoin was found at ${address}`);
 
         const contract = api.newContract(abis.gavcoin, address);
@@ -220,11 +228,11 @@ export default class Application extends Component {
           contract,
           instance: contract.instance,
           accounts: addresses.map((address) => {
-            const info = infos[address];
+            const info = infos[address] || {};
 
             return {
               address,
-              name: info.name || 'Unnamed',
+              name: info.name,
               uuid: info.uuid
             };
           })

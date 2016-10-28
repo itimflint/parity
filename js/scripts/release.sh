@@ -10,49 +10,52 @@ function setup_git_user {
 }
 
 # change into the build directory
-pushd `dirname $0`
-cd ../.build
+BASEDIR=`dirname $0`
+GITLOG=./.git/gitcommand.log
+pushd $BASEDIR
+cd ../.dist
 
 # variables
 UTCDATE=`date -u "+%Y%m%d-%H%M%S"`
-
-# Create proper directory structure
-mkdir -p build
-mv *.* build
-mkdir -p src
-
-# Copy rust files
-cp ../Cargo.precompiled.toml Cargo.toml
-cp ../build.rs .
-cp ../src/lib.rs* ./src/
 
 # init git
 rm -rf ./.git
 git init
 
 # add local files and send it up
+echo "Setting up GitHub config for js-precompiled"
 setup_git_user
+
+echo "Checking out $CI_BUILD_REF_NAME branch"
 git remote add origin https://${GITHUB_JS_PRECOMPILED}:@github.com/ethcore/js-precompiled.git
-git fetch origin
+git fetch origin 2>$GITLOG
 git checkout -b $CI_BUILD_REF_NAME
+
+echo "Committing compiled files for $UTCDATE"
 git add .
-git commit -m "$UTCDATE [compiled]"
+git commit -m "$UTCDATE"
+
+echo "Merging remote"
 git merge origin/$CI_BUILD_REF_NAME -X ours --commit -m "$UTCDATE [release]"
-git push origin $CI_BUILD_REF_NAME
+git push origin HEAD:refs/heads/$CI_BUILD_REF_NAME 2>$GITLOG
+PRECOMPILED_HASH=`git rev-parse HEAD`
 
 # back to root
 popd
 
-# bump js-precompiled
-cargo update -p parity-ui-precompiled
-
-# add to git and push
+echo "Setting up GitHub config for parity"
 setup_git_user
 git remote set-url origin https://${GITHUB_JS_PRECOMPILED}:@github.com/ethcore/parity.git
-git fetch origin
-git add . || true
-git commit -m "[ci skip] js-precompiled $UTCDATE" || true
-git push origin || true
+git reset --hard origin/$CI_BUILD_REF_NAME 2>$GITLOG
+
+echo "Updating cargo package parity-ui-precompiled#$PRECOMPILED_HASH"
+cargo update -p parity-ui-precompiled
+# --precise "$PRECOMPILED_HASH"
+
+echo "Committing updated files"
+git add .
+git commit -m "[ci skip] js-precompiled $UTCDATE"
+git push origin HEAD:refs/heads/$CI_BUILD_REF_NAME 2>$GITLOG
 
 # exit with exit code
 exit 0
