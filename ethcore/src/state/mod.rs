@@ -345,6 +345,13 @@ impl State {
 		self.ensure_cached(a, RequireCache::None, false, |a| a.is_some())
 	}
 
+	/// Determine whether an account exists.
+	pub fn not_empty(&self, a: &Address) -> bool {
+		// Bloom filter does not contain empty accounts, so it is important here to
+		// check if account exists in the database directly before EIP-158 is in effect.
+		self.db.check_account_bloom(a)
+	}
+
 	/// Get the balance of account `a`.
 	pub fn balance(&self, a: &Address) -> U256 {
 		self.ensure_cached(a, RequireCache::None, true,
@@ -462,7 +469,7 @@ impl State {
 	pub fn add_balance_and_cleanup(&mut self, to: &Address, by: &U256, no_empty: bool, kill_empty: bool) {
 		if !no_empty || !by.is_zero() {
 			self.add_balance(to, by);
-		} else if kill_empty /*&& by.is_zero()*/ && self.ensure_cached(to, RequireCache::CodeSize, true, |a| a.map(Account::is_empty).unwrap_or(false)) {
+		} else if kill_empty /*&& by.is_zero()*/ && self.ensure_cached(to, RequireCache::CodeSize, true, |a| a.map(Account::is_garbage_collectable).unwrap_or(false)) {
 			self.kill_account(to)
 		}
 	}
@@ -475,7 +482,7 @@ impl State {
 	pub fn transfer_balance_and_cleanup(&mut self, from: &Address, to: &Address, by: &U256, no_empty: bool, kill_empty: bool) {
 		if !no_empty || !by.is_zero() {
 			self.transfer_balance(from, to, by);
-		} else if kill_empty /*&& by.is_zero()*/ && self.ensure_cached(to, RequireCache::CodeSize, true, |a| a.map(Account::is_empty).unwrap_or(false)) {
+		} else if kill_empty /*&& by.is_zero()*/ && self.ensure_cached(to, RequireCache::CodeSize, true, |a| a.map(Account::is_garbage_collectable).unwrap_or(false)) {
 			self.kill_account(to)
 		}
 	}
@@ -528,13 +535,13 @@ impl State {
 		// first, commit the sub trees.
 		for (address, ref mut a) in accounts.iter_mut().filter(|&(_, ref a)| a.is_dirty()) {
 			if let Some(ref mut account) = a.account {
-				if !account.is_empty() {
-					db.note_account_bloom(address);
-				}
 				let addr_hash = account.address_hash(address);
 				let mut account_db = factories.accountdb.create(db.as_hashdb_mut(), addr_hash);
 				account.commit_storage(&factories.trie, account_db.as_hashdb_mut());
 				account.commit_code(account_db.as_hashdb_mut());
+				if !account.is_completely_empty() {
+					db.note_account_bloom(address);
+				}
 			}
 		}
 

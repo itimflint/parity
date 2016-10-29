@@ -295,7 +295,10 @@ impl Account {
 	pub fn storage_is_clean(&self) -> bool { self.storage_changes.is_empty() }
 
 	/// Check if account has zero nonce, balance, no code and no storage.
-	pub fn is_empty(&self) -> bool {
+	///
+	/// Note this can only be called immeditely after commit. It will panic if the storage has some changes.
+	pub fn is_completely_empty(&self) -> bool {
+		assert!(self.storage_changes.is_empty());
 		self.storage_changes.is_empty() &&
 		self.balance.is_zero() &&
 		self.nonce.is_zero() &&
@@ -304,7 +307,7 @@ impl Account {
 	}
 
 	/// Check if account has zero nonce, balance and no code.
-	pub fn is_basically_empty(&self) -> bool {
+	pub fn is_garbage_collectable(&self) -> bool {
 		self.balance.is_zero() &&
 		self.nonce.is_zero() &&
 		self.code_hash == SHA3_EMPTY

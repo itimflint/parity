@@ -191,11 +191,14 @@ impl<Gas: CostType> Gasometer<Gas> {
 
 				let address = u256_to_address(stack.peek(1));
 
-				if instruction == instructions::CALL && !ext.exists(&address) {
+				if !schedule.no_empty_accounts && instruction == instructions::CALL && !ext.exists(&address) {
 					gas = overflowing!(gas.overflow_add(schedule.call_new_account_gas.into()));
 				};
 
 				if !stack.peek(2).is_zero() {
+					if schedule.no_empty_accounts && instruction == instructions::CALL && ext.will_create_new_account(&address) {
+						gas = overflowing!(gas.overflow_add(schedule.call_new_account_gas.into()));
+					}
 					gas = overflowing!(gas.overflow_add(schedule.call_value_transfer_gas.into()));
 				};
 
